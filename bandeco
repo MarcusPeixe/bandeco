@@ -53,8 +53,8 @@ def open_cache(key:str, mode: str):
   return open(f"{HOME}/.cache/bandeco/{key}", mode)
 
 
-def sanitise_entry(entry: tuple[str, str, str]):
-  menu, date, meal = entry
+def sanitise_entry(entry: tuple[str, str, str, str]):
+  menu, date, meal, calories = entry
   
   # Sanitise the menu string
   menu = (
@@ -74,22 +74,26 @@ def sanitise_entry(entry: tuple[str, str, str]):
     "J": "dinner",
   }[meal]
 
+  # Convert the calories to an integer
+  calories = int(calories)
+
   return {
-    "menu"    : menu,
-    "date"    : date,
-    "meal"    : meal,
+    "menu"     : menu,
+    "date"     : date,
+    "meal"     : meal,
+    "calories" : calories,
   }
 
 
-def entry_to_key_value(entries: tuple[str, str, str]):
+def entry_to_key_value(entries: tuple[str, str, str, str]):
   value = sanitise_entry(entries)
   key = f"{value['date']}-{value['meal']}"
   
   # Key-value pairs for the dict constructor
-  return (key, value['menu'])
+  return (key, { 'menu': value['menu'], 'calories': value['calories'] })
 
 
-def fetch_entries_http(restaurant: int):
+def fetch_entries_http(restaurant: int) -> dict[str]:
   data = (
     "callCount=1\n"
     "windowName=\n"
@@ -110,9 +114,10 @@ def fetch_entries_http(restaurant: int):
   )
 
   regex = (
-    r'cdpdia:"(.+?)",.+?,'
-    r'dtarfi:"(.+?)",.+?,'
-    r'tiprfi:"(\w)"'
+    r'cdpdia:"(.+?)",.*?'
+    r'dtarfi:"(.+?)",.*?'
+    r'tiprfi:"(\w)",.*?'
+    r'vlrclorfi:(\d+)'
   )
 
   eprint("Requesting MENU over HTTP...")
@@ -124,7 +129,7 @@ def fetch_entries_http(restaurant: int):
   return dict(entry_to_key_value(entry) for entry in entries)
 
 
-def fetch_entries_cached(key: str) -> dict[str, str] | None:
+def fetch_entries_cached(key: str) -> dict[str] | None:
   try:
     eprint(f'Attempting to open cache "{key}"...')
     with open_cache(key, "rb") as cache:
@@ -135,7 +140,7 @@ def fetch_entries_cached(key: str) -> dict[str, str] | None:
     return None
 
 
-def store_entries_cache(key: str, entries: dict[str, str]):
+def store_entries_cache(key: str, entries: dict[str]):
   with open_cache(key, "wb") as cache:
     pickle.dump(entries, cache)
 
@@ -243,19 +248,23 @@ def parse_args():
   return (day, meal, week, restaurant)
 
 
-def display_day_menu(entries: dict[str, str], day: datetime.date, meal: str):
+def display_day_menu(entries: dict[str], day: datetime.date, meal: str):
   date = day.strftime("%d/%m/%Y")
   weekday = day.strftime("%A")
   print(f"\033[1;93m## {weekday} ({date})\033[m")
   if meal == "l" or meal == "a":
     print(f"\033[1;93m### Lunch:\033[m")
-    print(entries[f"{date}-lunch"])
+    print(entries[f"{date}-lunch"]['menu'])
+    calories = entries[f"{date}-lunch"]['calories']
+    print(f"\n\033[1mCalories: {calories} Kcal\033[m")
   if meal == "d" or meal == "a":
     print(f"\033[1;93m### Dinner:\033[m")
-    print(entries[f"{date}-dinner"])
+    print(entries[f"{date}-dinner"]['menu'])
+    calories = entries[f"{date}-dinner"]['calories']
+    print(f"\n\033[1mCalories: {calories} Kcal\033[m")
 
 
-def display_week_menu(entries: dict[str, str], day: datetime.date, meal: str):
+def display_week_menu(entries: dict[str], day: datetime.date, meal: str):
   week = day.strftime("%W-%Y")
   for weekday in range(1, 6):
     date = datetime.datetime.strptime(f"{weekday}-{week}", "%w-%W-%Y").date()
