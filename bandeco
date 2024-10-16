@@ -184,7 +184,7 @@ def get_date(day: str):
       return parsed
 
   print(
-    "Invalid date format. Available formats (case insensitive):\n"
+    "Invalid date format. Available formats are:\n"
     "\n"
     "- Today         (For today)\n"
     "- Fri           (For this week's friday)\n"
@@ -192,6 +192,8 @@ def get_date(day: str):
     "- 01/01         (For the first of January of this year)\n"
     "- 01/01/01      (For the first of January of 2001)\n"
     "- 01/01/1901    (For the first of January of 1901)\n"
+    "\n"
+    "The formats are case insensitive and dependent on your locale.\n"
   )
   raise ValueError("Unable to parse input date")
 
