@@ -183,7 +183,17 @@ def get_date(day: str):
     if parsed is not None:
       return parsed
 
-  raise ValueError("unable to parse input date")
+  print(
+    "Invalid date format. Available formats (case insensitive):\n"
+    "\n"
+    "- Today         (For today)\n"
+    "- Fri           (For this week's friday)\n"
+    "- Friday\n"
+    "- 01/01         (For the first of January of this year)\n"
+    "- 01/01/01      (For the first of January of 2001)\n"
+    "- 01/01/1901    (For the first of January of 1901)\n"
+  )
+  raise ValueError("Unable to parse input date")
 
 
 def get_restaurant_code(search: str):
@@ -301,6 +311,10 @@ def main():
 
 
 if __name__ == "__main__":
-  sys.exit(main())
+  try:
+    sys.exit(main())
+  except Exception as ex:
+    print("Error:", ex)
+    sys.exit(1)
 
 
