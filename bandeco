@@ -159,6 +159,10 @@ def get_date(day: str):
 
   if day == "today":
     return today
+  elif day == "tomorrow":
+    return today + datetime.timedelta(days=1)
+  elif day == "yesterday":
+    return today - datetime.timedelta(days=1)
 
   def parse_with_format(day: str, format: str, defaults: str):
     try:
@@ -187,6 +191,8 @@ def get_date(day: str):
     "Invalid date format. Available formats are:\n"
     "\n"
     "- Today         (For today)\n"
+    "- Tomorrow      (For tomorrow)\n"
+    "- Yesterday     (For yesterday)\n"
     "- Fri           (For this week's friday)\n"
     "- Friday\n"
     "- 01/01         (For the first of January of this year)\n"
@@ -213,7 +219,6 @@ def parse_args():
   global verbose_mode
 
   parser = argparse.ArgumentParser(
-    prog="bandeco",
     description="Fetches USP's university restaurant menu for the day"
   )
 
