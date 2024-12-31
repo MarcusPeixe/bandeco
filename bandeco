@@ -6,6 +6,7 @@ import datetime
 import requests
 import difflib
 import pickle
+import json
 import sys
 import re
 import os
@@ -145,13 +146,20 @@ def store_entries_cache(key: str, entries: dict[str]):
     pickle.dump(entries, cache)
 
 
+def get_week(date: datetime.date) -> str:
+  week = date.strftime("%Yw%W")
+  if week.endswith("w00"):
+    week = datetime.datetime(date.year - 1, 12, 31).strftime("%Yw%W")
+  return week
+
+
 def cache_key(date: datetime.date, restaurant: int):
-  return f"{date.strftime("%Yw%W")}r{restaurant:02}"
+  return f"{get_week(date)}r{restaurant:02}"
 
 
 def is_current_week(date: datetime.date):
   today = datetime.date.today()
-  return date.strftime("%Yw%W") == today.strftime("%Yw%W")
+  return get_week(date) == get_week(today)
 
 
 def get_date(day: str):
@@ -249,6 +257,11 @@ def parse_args():
     action='store_true',
     help="Print verbose output."
   )
+  parser.add_argument(
+    '-j', '--json',
+    action='store_true',
+    help="Output in JSON."
+  )
 
   parsed = parser.parse_args()
 
@@ -257,12 +270,13 @@ def parse_args():
   day: datetime.date = get_date(parsed.day)
   meal: str = parsed.meal[0]
   week: bool = parsed.week
+  json: bool = parsed.json
   eprint("=== Parsing restaurant...")
   restaurant = get_restaurant_code(parsed.restaurant)
 
   eprint("ARGS:", (day, meal, restaurant))
 
-  return (day, meal, week, restaurant)
+  return (json, restaurant, day, meal, week)
 
 
 def display_day_menu(entries: dict[str], day: datetime.date, meal: str):
@@ -270,12 +284,12 @@ def display_day_menu(entries: dict[str], day: datetime.date, meal: str):
   weekday = day.strftime("%A")
   print(f"\033[1;93m## {weekday} ({date})\033[m")
   if meal == "l" or meal == "a":
-    print(f"\033[1;93m### Lunch:\033[m")
+    print("\033[1;93m### Lunch:\033[m")
     print(entries[f"{date}-lunch"]['menu'])
     calories = entries[f"{date}-lunch"]['calories']
     print(f"\n\033[1mCalories: {calories} Kcal\033[m")
   if meal == "d" or meal == "a":
-    print(f"\033[1;93m### Dinner:\033[m")
+    print("\033[1;93m### Dinner:\033[m")
     print(entries[f"{date}-dinner"]['menu'])
     calories = entries[f"{date}-dinner"]['calories']
     print(f"\n\033[1mCalories: {calories} Kcal\033[m")
@@ -288,8 +302,63 @@ def display_week_menu(entries: dict[str], day: datetime.date, meal: str):
     display_day_menu(entries, date, meal)
 
 
+def day_menu_object(entries: dict[str], day: datetime.date, meal: str):
+  date = day.strftime("%d/%m/%Y")
+  weekday = day.strftime("%A").lower()
+
+  data = {
+    'date': date,
+    'weekday': weekday,
+  }
+
+  if meal == "l" or meal == "a":
+    data['lunch'] = entries[f"{date}-lunch"]
+  if meal == "d" or meal == "a":
+    data['dinner'] = entries[f"{date}-dinner"]
+
+  return data
+
+
+def week_menu_object(entries: dict[str], day: datetime.date, meal: str):
+  week = day.strftime("%W-%Y")
+
+  return [
+    day_menu_object(entries, date, meal)
+    for date in (
+      datetime.datetime.strptime(f"{weekday}-{week}", "%w-%W-%Y").date()
+      for weekday in range(1, 6)
+    )
+  ]
+
+
+def display_pretty(entries: dict[str], options: tuple):
+  restaurant, day, meal, week = options
+
+  print(f"\033[1;93m# {restaurants[restaurant - 1]}\033[m")
+
+  if week:
+    display_week_menu(entries, day, meal)
+  else:
+    display_day_menu(entries, day, meal)
+
+
+def display_json(entries: dict[str], options: tuple):
+  restaurant, day, meal, week = options
+
+  data = {
+    'restaurant': restaurants[restaurant - 1],
+    'data': (
+      week_menu_object(entries, day, meal)
+      if week else
+      day_menu_object(entries, day, meal)
+    )
+  }
+
+  print(json.dumps(data, indent=2))
+
+
 def main():
-  day, meal, week, restaurant = parse_args()
+  json, restaurant, day, *options = parse_args()
 
   key = cache_key(day, restaurant)
   entries = fetch_entries_cached(key)
@@ -307,12 +376,10 @@ def main():
 
     store_entries_cache(key, entries)
   
-  print(f"\033[1;93m# {restaurants[restaurant - 1]}\033[m")
-
-  if week:
-    display_week_menu(entries, day, meal)
+  if json:
+    display_json(entries, (restaurant, day, *options))
   else:
-    display_day_menu(entries, day, meal)
+    display_pretty(entries, (restaurant, day, *options))
 
   return 0
 
