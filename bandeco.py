@@ -232,14 +232,14 @@ def parse_args():
 
   parser.add_argument(
     '-d', '--day', type=str,
-    default="today",
+    default='today',
     help="Day to fetch the menu for. Can be a day of the week or a date."
   )
   parser.add_argument(
     '-m', '--meal',
     type=lambda s: s.lower(),
     choices=['l', 'lunch', 'd', 'dinner', 'a', 'all'],
-    default='dinner',
+    default='all',
     help="Meal of the day to fetch the menu for."
   )
   parser.add_argument(
